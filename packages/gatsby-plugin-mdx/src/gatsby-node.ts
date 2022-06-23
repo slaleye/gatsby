@@ -77,9 +77,9 @@ export const onCreateWebpackConfig: GatsbyNode["onCreateWebpackConfig"] =
             ],
           },
           {
-            test: /\.[tj]sx?/,
+            test: /\.[tj]sx?$/,
             resourceQuery: /__mdxPath=.+\.mdx?$/,
-            // resourceQuery: query => console.log({ query }),
+            // resourceQuery: rq => console.log({ rq }),
             use: [
               loaders.js(),
               {
@@ -110,10 +110,15 @@ export const resolvableExtensions: GatsbyNode["resolvableExtensions"] = (
  * Convert MDX to JSX so that Gatsby can extract the GraphQL queries and render the pages.
  */
 export const preprocessSource: GatsbyNode["preprocessSource"] = async (
-  { filename, contents, getNode, getNodesByType, pathPrefix, reporter, cache },
+  { filename, getNode, getNodesByType, pathPrefix, reporter, cache },
   pluginOptions: IMdxPluginOptions
 ) => {
   const { extensions } = defaultOptions(pluginOptions)
+  const mdxFilePath = filename.split(`__mdxPath=`)[1]
+
+  if (!mdxFilePath) {
+    return undefined
+  }
 
   const mdxOptions = await enhanceMdxOptions(pluginOptions, {
     getNode,
@@ -123,11 +128,13 @@ export const preprocessSource: GatsbyNode["preprocessSource"] = async (
     cache,
   })
 
-  const ext = path.extname(filename)
+  const ext = path.extname(mdxFilePath)
 
   if (!extensions.includes(ext)) {
     return undefined
   }
+
+  const contents = await fs.readFile(mdxFilePath)
 
   const { processedMDX } = await compileMDX(
     {
@@ -135,7 +142,7 @@ export const preprocessSource: GatsbyNode["preprocessSource"] = async (
       children: [],
       parent: ``,
       internal: { contentDigest: ``, owner: ``, type: `` },
-      body: contents,
+      body: contents.toString(),
       rawBody: ``,
     },
     {
@@ -318,7 +325,10 @@ export const onCreatePage: GatsbyNode["onCreatePage"] = async (
 
   // Only apply on pages based on .mdx files and avoid loops
   if (extensions.includes(ext) && !page.context.frontmatter) {
-    const content = await fs.readFile(page.component, `utf8`)
+    const content = await fs.readFile(
+      page.component.split(`__mdxPath=`)[1],
+      `utf8`
+    )
     const { data: frontmatter } = grayMatter(content)
 
     deletePage(page)
