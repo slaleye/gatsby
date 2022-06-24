@@ -12,11 +12,10 @@ import rehypeMdxMetadataExtractor from "./rehype-metadata-extractor"
 import { remarkMdxHtmlPlugin } from "./remark-mdx-html-plugin"
 import { remarkPathPlugin } from "./remark-path-prefix-plugin"
 
-export interface IMdxPluginOptions extends PluginOptions {
+export interface IMdxPluginOptions extends Partial<PluginOptions> {
   extensions: [string]
-  defaultLayouts: { [key: string]: string }
   mdxOptions: ProcessorOptions
-  gatsbyRemarkPlugins: [IPluginRefObject]
+  gatsbyRemarkPlugins?: [IPluginRefObject]
 }
 interface IHelpers {
   getNode: NodePluginArgs["getNode"]
@@ -37,7 +36,6 @@ export const defaultOptions: MdxDefaultOptions = pluginOptions => {
   const options: IMdxPluginOptions = deepmerge(
     {
       extensions: [`.mdx`],
-      defaultLayouts: {},
       mdxOptions,
     },
     pluginOptions
@@ -70,7 +68,14 @@ export const enhanceMdxOptions: EnhanceMdxOptions = async (
   }
 
   // Support gatsby-remark-* plugins
-  if (Object.keys(options.gatsbyRemarkPlugins).length) {
+  if (
+    options.gatsbyRemarkPlugins &&
+    Object.keys(options.gatsbyRemarkPlugins).length
+  ) {
+    if (!options.mdxOptions.remarkPlugins) {
+      options.mdxOptions.remarkPlugins = []
+    }
+
     // Parser plugins
     for (const plugin of options.gatsbyRemarkPlugins) {
       const requiredPlugin = plugin.module
